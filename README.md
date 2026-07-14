@@ -1,39 +1,16 @@
-# Realized Volatility Forecasting: HAR vs GARCH and Implied Vol
+# vol-forecast
 
-Does the HAR cascade beat standard volatility models out-of-sample, and does
-implied volatility (VIX) add information? 32 years of daily S&P 500 (SPY) data
-(Jan 1994 – Jul 2026), 22 years out-of-sample.
+HAR forecasts of S&P 500 realized volatility, tested against random walk, EWMA
+and GARCH(1,1). Daily SPY data from Jan 1994 to Jul 2026 (8,181 days),
+out-of-sample from 2004. The vol proxy is Garman-Klass daily variance, with
+Parkinson as a cross-check.
 
-## Method
+Main result: HAR wins at every horizon. Adding VIX helps at the one tenor it's
+priced for (22 days), does nothing at 5 days, and makes 1-day forecasts worse.
 
-- **Vol proxy**: Garman–Klass (1980) range-based daily variance from OHLC —
-  ~7x more efficient than squared close-to-close returns
-  (`src/volsig/estimators.py`), with Parkinson as a cross-check.
-- **Targets**: average daily variance over the next 1, 5 and 22 trading days,
-  strictly after the forecast date (`forward_target`).
-- **Models** (`src/volsig/models.py`):
-  - `rw` — trailing h-day mean variance (a stronger random walk than lag-1)
-  - `ewma` — RiskMetrics EWMA (λ = 0.94) on close-to-close returns
-  - `garch` — GARCH(1,1), parameters re-estimated on an expanding window every
-    21 days (`arch` package), forecasts from a fixed-parameter recursion using
-    information through t only; multi-step via the closed-form mean reversion
-  - `har` — HAR (Corsi 2009): OLS of forward variance on daily / weekly (5d) /
-    monthly (22d) trailing variance, direct forecasts per horizon
-  - `har_vix` — HAR plus VIX (converted to daily variance units)
-- **Evaluation** (`src/volsig/evaluate.py`): expanding-window walk-forward,
-  refit every 21 days, OOS from Jan 2004. Losses: QLIKE (robust to proxy noise,
-  Patton 2011) and RMSE on annualized vol. Diebold–Mariano tests with
-  Newey–West HAC (h−1 lags) and the HLN small-sample correction.
-- **Leakage controls**: when forecasting at t, training rows are restricted to
-  those whose forward target is fully realized by t (j ≤ t − h). Unit tests
-  poison the boundary window and assert the fit is unaffected
-  (`tests/test_vol.py`).
-- Negative OLS variance forecasts are floored at the 1st percentile of the
-  training target (affects `har_vix` at short horizons; counts printed).
+## Results
 
-## Results (out-of-sample, 2004–2026, ~5,600 days)
-
-QLIKE (lower is better):
+QLIKE, out-of-sample 2004-2026, ~5,600 days (lower is better):
 
 | model | 1d | 5d | 22d |
 |---|---|---|---|
@@ -43,37 +20,53 @@ QLIKE (lower is better):
 | har | **0.378** | 0.249 | 0.283 |
 | har_vix | 0.748 | **0.242** | **0.258** |
 
-Diebold–Mariano: HAR beats rw / ewma / garch at every horizon
-(stats −1.9 to −15.3). Full tables: `results/metrics.csv`, `results/dm_tests.csv`.
+Diebold-Mariano: HAR beats rw, ewma and garch at all three horizons (stats -1.9
+to -15.3). har_vix vs har: -2.74 at 22d, -0.61 at 5d. Full tables in
+`results/metrics.csv` and `results/dm_tests.csv`.
 
-## What the results actually say
+The 1-day har_vix number isn't a typo. The OLS weight on VIX pushes short-horizon
+forecasts negative in calm markets, and the floor only partly saves it. Log-HAR
+or HARQ would probably fix it; I didn't pursue that here.
 
-1. **The HAR cascade wins**: three OLS coefficients on trailing vol beat
-   GARCH(1,1) and EWMA everywhere, consistent with the long-memory literature.
-   Persistence, not model sophistication, is what matters at these horizons.
-2. **Implied vol helps exactly at the tenor it is priced for**: adding VIX
-   improves 22-day forecasts (DM −2.74) — VIX is a 30-calendar-day measure —
-   is a wash at 5 days (DM −0.61), and *degrades* 1-day QLIKE, where the OLS
-   weight on VIX pushes forecasts negative in calm regimes (clipped at the
-   floor). Information content is horizon-specific.
-3. **The variance risk premium is visible**: VIX exceeds subsequent 22-day
-   realized vol by 6.1 vol points on average — buyers of index options pay a
-   premium for variance insurance, which is why VIX is a biased (but still
-   informative) forecast.
-4. Garman–Klass measures intraday variance only (no overnight gaps), so
-   levels understate total vol (median 10.2% annualized vs ~16% close-to-close);
-   comparisons across models are unaffected since all target the same proxy.
+## Method
 
-## Limitations (deliberately not hidden)
+- Vol proxy: Garman-Klass range-based daily variance from OHLC
+  (`src/volsig/estimators.py`).
+- Targets: average daily variance over the next 1, 5 and 22 trading days, never
+  including the forecast date itself.
+- Models (`src/volsig/models.py`):
+  - `rw` — trailing h-day mean variance (a tougher baseline than lag-1)
+  - `ewma` — RiskMetrics EWMA (lambda = 0.94) on close-to-close returns
+  - `garch` — GARCH(1,1), parameters re-estimated every 21 days on an expanding
+    window (`arch` package), then a fixed-parameter recursion so forecasts at t
+    only use data through t; multi-step from the closed-form mean reversion
+  - `har` — OLS of forward variance on daily, weekly (5d) and monthly (22d)
+    trailing variance, fit separately per horizon
+  - `har_vix` — same plus VIX, converted to daily variance units
+- Walk-forward: expanding window, refit every 21 days, OOS from Jan 2004. When
+  fitting at time t the training rows stop at t - h, so every training target is
+  fully realized before the forecast date. There are unit tests for this
+  (`tests/test_vol.py`).
+- Losses: QLIKE and RMSE on annualized vol. Diebold-Mariano with Newey-West
+  errors (h-1 lags) and the HLN small-sample correction.
+- Negative OLS variance forecasts get floored at the 1st percentile of the
+  training target (mostly hits har_vix at short horizons; counts are printed).
 
-- One asset (SPY). Range-based proxy, not tick-level realized variance —
-  5-minute RV (e.g. LOBSTER/TAQ) would sharpen the target.
-- Linear HAR in variance levels; log-HAR or HARQ (Bollerslev–Patton–Quaedvlieg)
-  would likely fix the short-horizon VIX pathology and is the natural next step.
-- No transaction-cost or option-strategy layer: this measures forecast quality,
-  not a tradeable vol strategy.
+## Notes
 
-## Reproduce
+- Garman-Klass only sees intraday variance, so levels sit low: median 10.2%
+  annualized vs ~16% close-to-close. Model comparisons are unaffected — every
+  model targets the same proxy.
+- VIX ran 6.1 vol points above subsequent 22-day realized vol on average. Option
+  buyers pay up for variance insurance, so VIX is a biased forecast, though
+  still an informative one at its own tenor.
+- One asset. A tick-level realized variance target (5-minute RV) would be
+  sharper than a range proxy. And there are no transaction costs or option
+  strategies anywhere in here — this measures forecast quality, nothing else.
+- References: Corsi (2009) for HAR; Patton (2011) for QLIKE; Garman & Klass
+  (1980) and Parkinson (1980) for the estimators.
+
+## Running it
 
 ```
 pip install -r requirements.txt
