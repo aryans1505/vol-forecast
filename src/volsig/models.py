@@ -1,6 +1,6 @@
-"""Forecasting models: HAR (Corsi 2009), RiskMetrics EWMA, GARCH(1,1).
+"""HAR, EWMA and GARCH forecasters.
 
-Conventions: a feature/forecast indexed at date t uses information up to and
+Convention throughout: a value indexed at date t uses information up to and
 including t, and forecasts the average daily variance over t+1 .. t+h.
 """
 import numpy as np
@@ -19,7 +19,7 @@ def har_features(var):
 
 
 def forward_target(var, h):
-    """Average daily variance over t+1 .. t+h (strictly after t)."""
+    """Mean daily variance over t+1 .. t+h. Does not include t."""
     return var.rolling(h).mean().shift(-h)
 
 
@@ -29,11 +29,10 @@ def ewma_variance(returns, lam=0.94):
 
 
 def garch_variance_path(returns, omega, alpha, beta):
-    """Conditional variance recursion sigma2_{t+1} given info through t.
+    """GARCH(1,1) variance recursion.
 
-    Returns a series aligned so that the value at index t is the one-step
-    forecast made at t (uses r_t and sigma2_t). Initialized at the
-    unconditional variance.
+    The value at index t is the one-step forecast made at t (uses r_t and
+    sigma2_t). Starts from the unconditional variance.
     """
     r2 = returns.to_numpy() ** 2
     n = len(r2)

@@ -4,7 +4,7 @@ import pandas as pd
 
 
 def qlike(fvar, rvar):
-    """QLIKE loss for variance forecasts (Patton 2011): robust to noisy proxy."""
+    """QLIKE loss. Robust to noise in the variance proxy."""
     r = rvar / fvar
     return r - np.log(r) - 1.0
 
@@ -17,12 +17,12 @@ def rmse_vol(fvar, rvar):
 
 
 def walk_forward_ols(X, y, oos_start, h, refit=21):
-    """Expanding-window direct-forecast OLS, refit every `refit` OOS days.
+    """Expanding-window OLS, refit every `refit` OOS days.
 
-    Leakage rule: forecasting at time i may only train on rows j whose target
-    (which spans j+1..j+h) is fully realized by i, i.e. j <= i - h.
-    OLS in variance levels can go negative; forecasts are floored at the 1st
-    percentile of the training-sample target (count reported).
+    Predicting at i, train only on rows j <= i - h, so every training target
+    (which spans j+1..j+h) is finished before the forecast date. OLS variance
+    forecasts can go negative; floored at the 1st percentile of the training
+    target (count returned).
     """
     Xv = X.to_numpy()
     yv = y.to_numpy()

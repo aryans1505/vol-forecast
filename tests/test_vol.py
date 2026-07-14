@@ -27,15 +27,15 @@ def test_garman_klass_hand_computed():
 
 
 def test_har_features_no_lookahead():
-    """Features at day t are unchanged when all future rows are deleted."""
+    # features at day t shouldn't change when all future rows are deleted
     var = garman_klass(_ohlc(120))
     full = har_features(var)
     trunc = har_features(var.iloc[:80])
     pd.testing.assert_frame_equal(full.iloc[:80], trunc)
 
 
-def test_target_strictly_forward():
-    """Target at t must not involve var_t or anything before it."""
+def test_target_excludes_current_day():
+    # target at t must not involve var_t or anything before it
     var = pd.Series(np.arange(1.0, 31.0), index=pd.bdate_range("2020-01-01", periods=30))
     tgt = forward_target(var, h=5)
     # at t=0 (var=1), target = mean(var_1..var_5) = mean(2..6) = 4
@@ -53,7 +53,6 @@ def test_qlike_minimized_at_truth():
 
 
 def test_dm_sign():
-    """Uniformly smaller losses for A => negative DM stat."""
     rng = np.random.default_rng(1)
     base = np.abs(rng.normal(1, 0.1, 500))
     stat = dm_test(base * 0.5, base, h=5)
@@ -61,7 +60,6 @@ def test_dm_sign():
 
 
 def test_walk_forward_trains_only_on_realized_targets():
-    """With h=5, the fit at OOS start must exclude rows within h of it."""
     n = 60
     idx = pd.bdate_range("2020-01-01", periods=n)
     X = pd.DataFrame({"x": np.ones(n)}, index=idx)
