@@ -51,8 +51,10 @@ def main():
     from arch import arch_model
 
     garch_next = pd.Series(np.nan, index=var.index)
+    garch_params = pd.DataFrame(
+        np.nan, index=var.index, columns=["omega", "alpha", "beta"]
+    )
     scale = 100.0
-    params_log = []
     for i in range(OOS_START, len(var), REFIT):
         res = arch_model(
             ret.iloc[:i] * scale, vol="GARCH", p=1, q=1, mean="Zero"
@@ -62,11 +64,10 @@ def main():
             res.params["alpha[1]"],
             res.params["beta[1]"],
         )
-        params_log.append((var.index[i].date(), om, al, be))
         sig2 = garch_variance_path(ret, om, al, be)
         j_end = min(i + REFIT, len(var))
         garch_next.iloc[i:j_end] = sig2.iloc[i:j_end].to_numpy()
-    om, al, be = params_log[-1][1:]
+        garch_params.iloc[i:j_end] = [om, al, be]
 
     ewma = ewma_variance(ret)
 
@@ -80,7 +81,13 @@ def main():
         # baselines: forecasts at t from info <= t
         rw = var.rolling(h).mean()  # trailing h-day mean (stronger than 1-day)
         ew = ewma.reindex(var.index)
-        gar = garch_multistep_mean(garch_next, om, al, be, h)
+        gar = garch_multistep_mean(
+            garch_next,
+            garch_params["omega"].to_numpy(),
+            garch_params["alpha"].to_numpy(),
+            garch_params["beta"].to_numpy(),
+            h,
+        )
 
         har_p, clip1 = walk_forward_ols(X_har, y, OOS_START, h, REFIT)
         hvx_p, clip2 = walk_forward_ols(X_vix, y, OOS_START, h, REFIT)

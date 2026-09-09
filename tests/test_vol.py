@@ -3,7 +3,8 @@ import pandas as pd
 import pytest
 
 from volsig.estimators import garman_klass, parkinson, LN2
-from volsig.models import har_features, forward_target, garch_variance_path
+from volsig.models import (har_features, forward_target, garch_variance_path,
+                           garch_multistep_mean)
 from volsig.evaluate import qlike, dm_test, walk_forward_ols
 
 
@@ -70,6 +71,18 @@ def test_walk_forward_trains_only_on_realized_targets():
     y.iloc[oos_start - h + 1 : oos_start + 1] = 1000.0
     preds, _ = walk_forward_ols(X, y, oos_start=oos_start, h=h, refit=1000)
     assert preds.iloc[oos_start] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_garch_multistep_per_date_params_match_scalar():
+    # each date must be aggregated with its own window's params, not the last fit's
+    sig2 = pd.Series([2e-4, 2e-4])
+    a = garch_multistep_mean(sig2, 1e-6, 0.05, 0.90, 5)
+    b = garch_multistep_mean(sig2, 1e-6, 0.10, 0.88, 5)
+    mixed = garch_multistep_mean(sig2, np.full(2, 1e-6),
+                                 np.array([0.05, 0.10]), np.array([0.90, 0.88]), 5)
+    assert mixed.iloc[0] == pytest.approx(a.iloc[0])
+    assert mixed.iloc[1] == pytest.approx(b.iloc[1])
+    assert mixed.iloc[0] != pytest.approx(b.iloc[0])
 
 
 def test_garch_recursion_matches_manual():

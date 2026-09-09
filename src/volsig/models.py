@@ -46,10 +46,14 @@ def garch_variance_path(returns, omega, alpha, beta):
 
 
 def garch_multistep_mean(sig2_next, omega, alpha, beta, h):
-    """Average of sigma2_{t+1..t+h} from the one-step forecast (closed form)."""
-    phi = alpha + beta
-    uncond = omega / max(1.0 - phi, 1e-8)
-    ks = np.arange(h)
-    weights = phi**ks
+    """Average of sigma2_{t+1..t+h} from the one-step forecast (closed form).
+
+    Parameters can be scalars or per-date arrays aligned with sig2_next, so
+    each walk-forward window aggregates with its own parameter estimates.
+    """
+    phi = np.minimum(np.asarray(alpha) + np.asarray(beta), 1.0 - 1e-8)
+    uncond = np.asarray(omega) / (1.0 - phi)
+    # mean of phi^k over k = 0..h-1
+    w = (1.0 - phi**h) / (h * (1.0 - phi))
     # sigma2_{t+1+k} = uncond + phi^k (sigma2_{t+1} - uncond)
-    return uncond + (sig2_next - uncond) * weights.mean()
+    return uncond + (sig2_next - uncond) * w
