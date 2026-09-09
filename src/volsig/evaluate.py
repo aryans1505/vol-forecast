@@ -16,20 +16,28 @@ def rmse_vol(fvar, rvar):
     return float(np.sqrt(np.mean((fv - rv) ** 2)))
 
 
-def walk_forward_ols(X, y, oos_start, h, refit=21):
+def walk_forward_ols(X, y, oos_start, h, refit=21, log_space=False):
     """Expanding-window OLS, refit every `refit` OOS days.
 
     Predicting at i, train only on rows j <= i - h, so every training target
     (which spans j+1..j+h) is finished before the forecast date. OLS variance
     forecasts can go negative; floored at the 1st percentile of the training
     target (count returned).
+
+    With log_space=True the regression is log-variance on log-features:
+    forecasts are positive by construction (no flooring), mapped back as
+    exp(Xb + s2/2) with s2 the training residual variance (lognormal mean).
     """
-    Xv = X.to_numpy()
-    yv = y.to_numpy()
+    Xv = X.to_numpy(dtype=float)
+    yv = y.to_numpy(dtype=float)
+    if log_space:
+        Xv = np.log(np.where(Xv > 0, Xv, np.nan))
+        yv = np.log(np.where(yv > 0, yv, np.nan))
     n = len(y)
     preds = np.full(n, np.nan)
     beta = None
     floor = 1e-12
+    s2 = 0.0
     n_clip = 0
     for i in range(oos_start, n):
         if (i - oos_start) % refit == 0:
@@ -38,10 +46,13 @@ def walk_forward_ols(X, y, oos_start, h, refit=21):
             ytr = yv[:hi][mask]
             A = np.column_stack([np.ones(mask.sum()), Xv[:hi][mask]])
             beta, *_ = np.linalg.lstsq(A, ytr, rcond=None)
+            s2 = float(np.var(ytr - A @ beta))
             floor = max(float(np.percentile(ytr, 1)), 1e-12)
         if not np.isnan(Xv[i]).any():
             p = beta[0] + Xv[i] @ beta[1:]
-            if p < floor:
+            if log_space:
+                p = np.exp(p + 0.5 * s2)
+            elif p < floor:
                 p = floor
                 n_clip += 1
             preds[i] = p

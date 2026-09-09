@@ -100,6 +100,19 @@ def test_garch_multistep_per_date_params_match_scalar():
     assert mixed.iloc[0] != pytest.approx(b.iloc[0])
 
 
+def test_walk_forward_log_space_positive_and_recovers_level():
+    n = 60
+    idx = pd.bdate_range("2020-01-01", periods=n)
+    X = pd.DataFrame({"x": np.full(n, 3.0)}, index=idx)
+    y = pd.Series(np.full(n, 2.0), index=idx)
+    preds, n_clip = walk_forward_ols(X, y, oos_start=40, h=5, refit=1000,
+                                     log_space=True)
+    assert n_clip == 0
+    assert (preds.iloc[40:] > 0).all()
+    # constant data: zero residual variance, so exp(log 2) = 2 exactly
+    assert preds.iloc[40] == pytest.approx(2.0, abs=1e-8)
+
+
 def test_garch_recursion_matches_manual():
     r = pd.Series([0.01, -0.02, 0.015])
     omega, alpha, beta = 1e-6, 0.1, 0.85

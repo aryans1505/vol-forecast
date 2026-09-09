@@ -98,8 +98,11 @@ def main():
 
         har_p, clip1 = walk_forward_ols(X_har, y, OOS_START, h, REFIT)
         hvx_p, clip2 = walk_forward_ols(X_vix, y, OOS_START, h, REFIT)
+        harl_p, _ = walk_forward_ols(X_har, y, OOS_START, h, REFIT, log_space=True)
+        hvxl_p, _ = walk_forward_ols(X_vix, y, OOS_START, h, REFIT, log_space=True)
 
-        models = {"rw": rw, "ewma": ew, "garch": gar, "har": har_p, "har_vix": hvx_p}
+        models = {"rw": rw, "ewma": ew, "garch": gar, "har": har_p, "har_vix": hvx_p,
+                  "har_log": harl_p, "har_vix_log": hvxl_p}
         losses = {}
         for name, f in models.items():
             fv = f.iloc[valid].to_numpy()
@@ -121,6 +124,8 @@ def main():
             ("har", "ewma"),
             ("har", "garch"),
             ("har_vix", "har"),
+            ("har_log", "har"),
+            ("har_vix_log", "har_log"),
         ]:
             la, lb = losses[a].align(losses[b], join="inner")
             dm_rows.append(
