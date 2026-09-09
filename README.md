@@ -1,32 +1,45 @@
 # vol-forecast
 
 HAR forecasts of S&P 500 realized volatility, tested against random walk, EWMA
-and GARCH(1,1). Daily SPY data from Jan 1994 to Jul 2026 (8,181 days),
+and GARCH(1,1). Daily SPY data from Jan 1994 to Sep 2026 (8,225 days),
 out-of-sample from 2004. The vol proxy is Garman-Klass daily variance, with
 Parkinson as a cross-check.
 
-Main result: HAR wins at every horizon. Adding VIX helps at the one tenor it's
-priced for (22 days), does nothing at 5 days, and makes 1-day forecasts worse.
+Main result: log-space HAR with VIX wins at every horizon. Two of my earlier
+headline claims died on closer inspection — "HAR beats GARCH everywhere" was
+mostly a level-bias artifact, and "VIX only helps at 22 days" was an artifact
+of fitting in levels. Details below.
 
 ## Results
 
-QLIKE, out-of-sample 2004-2026, ~5,600 days (lower is better):
+QLIKE, out-of-sample 2004-2026, ~5,700 days (lower is better):
 
 | model | 1d | 5d | 22d |
 |---|---|---|---|
-| rw | 0.644 | 0.311 | 0.386 |
-| ewma | 0.477 | 0.323 | 0.330 |
-| garch | 0.486 | 0.336 | 0.338 |
-| har | **0.378** | 0.249 | 0.283 |
-| har_vix | 0.748 | **0.242** | **0.258** |
+| rw | 0.641 | 0.310 | 0.385 |
+| ewma | 0.435 | 0.299 | 0.350 |
+| garch | 0.410 | 0.268 | 0.275 |
+| har | 0.377 | 0.249 | 0.283 |
+| har_vix | 0.743 | 0.241 | 0.258 |
+| har_log | 0.367 | 0.235 | 0.274 |
+| har_vix_log | **0.328** | **0.204** | **0.257** |
 
-Diebold-Mariano: HAR beats rw, ewma and garch at all three horizons (stats -1.9
-to -15.3). har_vix vs har: -2.74 at 22d, -0.61 at 5d. Full tables in
-`results/metrics.csv` and `results/dm_tests.csv`.
+`har_vix_log` beats everything at all three horizons (Diebold-Mariano vs
+`har_log`: -6.7 / -5.2 / -2.3). Full tables in `results/metrics.csv` and
+`results/dm_tests.csv`. Two results changed my read of the problem:
 
-The 1-day har_vix number isn't a typo. The OLS weight on VIX pushes short-horizon
-forecasts negative in calm markets, and the floor only partly saves it. Log-HAR
-or HARQ would probably fix it; I didn't pursue that here.
+- **Level calibration matters more than model choice at 22 days.** Before the
+  c2c-to-GK rescale, GARCH's 22d QLIKE was 0.338 and "HAR beats GARCH" looked
+  clean at every horizon. Calibrated GARCH scores 0.275 — statistically
+  indistinguishable from levels-HAR (DM +0.72). Most of GARCH's apparent loss
+  was level bias against the GK proxy, not worse dynamics.
+- **The levels har_vix fit still blows up at 1 day** (0.743): the OLS weight on
+  VIX drags short-horizon forecasts into the floor in calm markets. Fitting in
+  logs fixes it outright (0.328). The levels row stays in the table because the
+  failure mode is informative.
+
+VIX in logs helps at every horizon, not just the 22-day tenor it's priced for —
+the old "only at 22d" conclusion was the levels fit punishing itself at 1d.
 
 ## Method
 
@@ -43,6 +56,9 @@ or HARQ would probably fix it; I didn't pursue that here.
   - `har` — OLS of forward variance on daily, weekly (5d) and monthly (22d)
     trailing variance, fit separately per horizon
   - `har_vix` — same plus VIX, converted to daily variance units
+  - `har_log`, `har_vix_log` — the same regressions in log variance, mapped
+    back as exp(Xb + s²/2) with s² the training residual variance; positive by
+    construction, so no flooring
 - EWMA and GARCH are fit on close-to-close returns, so they forecast
   close-to-close variance, not the GK target. Both are rescaled to the target's
   level with an expanding mean(GK)/mean(r²) ratio estimated on past data only.
