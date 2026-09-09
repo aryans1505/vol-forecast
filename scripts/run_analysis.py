@@ -1,5 +1,4 @@
 """End-to-end: SPY realized-vol forecasting, HAR vs baselines, 1/5/22-day horizons."""
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -10,7 +9,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
 
 from volsig.data import load_ohlc, load_close
 from volsig.estimators import garman_klass, annualize_vol

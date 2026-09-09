@@ -91,8 +91,8 @@ the old "only at 22d" conclusion was the levels fit punishing itself at 1d.
 ## Running it
 
 ```
-pip install -r requirements.txt
+pip install -e .[dev]
 python scripts/download_data.py   # SPY + VIX daily OHLC via yfinance
-python -m pytest tests -q
+python -m pytest -q
 python scripts/run_analysis.py
 ```

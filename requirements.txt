@@ -1,6 +1,0 @@
-numpy
-pandas
-matplotlib
-arch  # GARCH
-yfinance
-pytest
