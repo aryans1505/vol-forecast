@@ -45,6 +45,18 @@ def garch_variance_path(returns, omega, alpha, beta):
     return pd.Series(sig2, index=returns.index)
 
 
+def level_calibration(target_var, returns):
+    """Expanding ratio mean(target) / mean(r^2), using data through t only.
+
+    Models fit on close-to-close returns (EWMA, GARCH) forecast close-to-close
+    variance. The GK target excludes the overnight gap and sits lower, so their
+    raw forecasts are biased high against it and QLIKE punishes the level.
+    Multiplying by this ratio puts them on the target's scale without leaking.
+    """
+    r2 = returns.pow(2).reindex(target_var.index)
+    return target_var.expanding().mean() / r2.expanding().mean()
+
+
 def garch_multistep_mean(sig2_next, omega, alpha, beta, h):
     """Average of sigma2_{t+1..t+h} from the one-step forecast (closed form).
 

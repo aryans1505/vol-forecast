@@ -20,6 +20,7 @@ from volsig.models import (
     ewma_variance,
     garch_variance_path,
     garch_multistep_mean,
+    level_calibration,
 )
 from volsig.evaluate import qlike, rmse_vol, walk_forward_ols, dm_test
 
@@ -71,6 +72,12 @@ def main():
 
     ewma = ewma_variance(ret)
 
+    # ewma/garch are fit on close-to-close returns, so they forecast c2c
+    # variance; the target is GK variance, which excludes the overnight gap.
+    # Rescale both to the target's level (expanding ratio, past data only)
+    # so QLIKE isn't just scoring the level bias.
+    calib = level_calibration(var, ret)
+
     rows = []
     dm_rows = []
     plot_series = {}
@@ -80,14 +87,14 @@ def main():
 
         # baselines: forecasts at t from info <= t
         rw = var.rolling(h).mean()  # trailing h-day mean (stronger than 1-day)
-        ew = ewma.reindex(var.index)
+        ew = ewma.reindex(var.index) * calib
         gar = garch_multistep_mean(
             garch_next,
             garch_params["omega"].to_numpy(),
             garch_params["alpha"].to_numpy(),
             garch_params["beta"].to_numpy(),
             h,
-        )
+        ) * calib
 
         har_p, clip1 = walk_forward_ols(X_har, y, OOS_START, h, REFIT)
         hvx_p, clip2 = walk_forward_ols(X_vix, y, OOS_START, h, REFIT)

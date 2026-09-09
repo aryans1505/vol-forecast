@@ -43,6 +43,10 @@ or HARQ would probably fix it; I didn't pursue that here.
   - `har` — OLS of forward variance on daily, weekly (5d) and monthly (22d)
     trailing variance, fit separately per horizon
   - `har_vix` — same plus VIX, converted to daily variance units
+- EWMA and GARCH are fit on close-to-close returns, so they forecast
+  close-to-close variance, not the GK target. Both are rescaled to the target's
+  level with an expanding mean(GK)/mean(r²) ratio estimated on past data only.
+  Without this, QLIKE mostly scores their level bias (see Notes).
 - Walk-forward: expanding window, refit every 21 days, OOS from Jan 2004. When
   fitting at time t the training rows stop at t - h, so every training target is
   fully realized before the forecast date. There are unit tests for this
@@ -55,8 +59,10 @@ or HARQ would probably fix it; I didn't pursue that here.
 ## Notes
 
 - Garman-Klass only sees intraday variance, so levels sit low: median 10.2%
-  annualized vs ~16% close-to-close. Model comparisons are unaffected — every
-  model targets the same proxy.
+  annualized vs ~16% close-to-close. An earlier version of this repo scored raw
+  EWMA/GARCH forecasts against the GK target anyway, which handicapped both by
+  their overnight-share bias and flattered HAR; the level calibration above
+  fixes that, and the tables reflect it.
 - VIX ran 6.1 vol points above subsequent 22-day realized vol on average. Option
   buyers pay up for variance insurance, so VIX is a biased forecast, though
   still an informative one at its own tenor.

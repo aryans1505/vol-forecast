@@ -4,7 +4,8 @@ import pytest
 
 from volsig.estimators import garman_klass, parkinson, LN2
 from volsig.models import (har_features, forward_target, garch_variance_path,
-                           garch_multistep_mean)
+                           garch_multistep_mean, ewma_variance,
+                           level_calibration)
 from volsig.evaluate import qlike, dm_test, walk_forward_ols
 
 
@@ -71,6 +72,20 @@ def test_walk_forward_trains_only_on_realized_targets():
     y.iloc[oos_start - h + 1 : oos_start + 1] = 1000.0
     preds, _ = walk_forward_ols(X, y, oos_start=oos_start, h=h, refit=1000)
     assert preds.iloc[oos_start] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_c2c_forecasts_rescaled_to_target_level():
+    # target proxy sits at 60% of close-to-close variance; the calibrated EWMA
+    # must be roughly unbiased for it, the raw EWMA must overshoot by ~1/0.6
+    rng = np.random.default_rng(3)
+    n = 4000
+    idx = pd.bdate_range("2000-01-03", periods=n)
+    ret = pd.Series(rng.normal(0.0, 0.01, n), index=idx)
+    target = pd.Series(0.6 * 0.01**2, index=idx)
+    raw = ewma_variance(ret)
+    scaled = raw * level_calibration(target, ret)
+    assert abs(scaled.iloc[500:].mean() / target.iloc[0] - 1) < 0.05
+    assert raw.iloc[500:].mean() / target.iloc[0] > 1.5
 
 
 def test_garch_multistep_per_date_params_match_scalar():
