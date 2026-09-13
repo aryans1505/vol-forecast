@@ -6,7 +6,7 @@ out-of-sample from 2004. The vol proxy is Garman-Klass daily variance, with
 Parkinson as a cross-check.
 
 Main result: log-space HAR with VIX wins at every horizon. Two of my earlier
-headline claims died on closer inspection — "HAR beats GARCH everywhere" was
+headline claims died on closer inspection: "HAR beats GARCH everywhere" was
 mostly a level-bias artifact, and "VIX only helps at 22 days" was an artifact
 of fitting in levels. Details below.
 
@@ -30,7 +30,7 @@ QLIKE, out-of-sample 2004-2026, ~5,700 days (lower is better):
 
 - **Level calibration matters more than model choice at 22 days.** Before the
   c2c-to-GK rescale, GARCH's 22d QLIKE was 0.338 and "HAR beats GARCH" looked
-  clean at every horizon. Calibrated GARCH scores 0.275 — statistically
+  clean at every horizon. Calibrated GARCH scores 0.275, statistically
   indistinguishable from levels-HAR (DM +0.72). Most of GARCH's apparent loss
   was level bias against the GK proxy, not worse dynamics.
 - **The levels har_vix fit still blows up at 1 day** (0.743): the OLS weight on
@@ -38,7 +38,7 @@ QLIKE, out-of-sample 2004-2026, ~5,700 days (lower is better):
   logs fixes it outright (0.328). The levels row stays in the table because the
   failure mode is informative.
 
-VIX in logs helps at every horizon, not just the 22-day tenor it's priced for —
+VIX in logs helps at every horizon, not just the 22-day tenor it's priced for;
 the old "only at 22d" conclusion was the levels fit punishing itself at 1d.
 
 ## Method
@@ -48,15 +48,15 @@ the old "only at 22d" conclusion was the levels fit punishing itself at 1d.
 - Targets: average daily variance over the next 1, 5 and 22 trading days, never
   including the forecast date itself.
 - Models (`src/volsig/models.py`):
-  - `rw` — trailing h-day mean variance (a tougher baseline than lag-1)
-  - `ewma` — RiskMetrics EWMA (lambda = 0.94) on close-to-close returns
-  - `garch` — GARCH(1,1), parameters re-estimated every 21 days on an expanding
+  - `rw`: trailing h-day mean variance (a tougher baseline than lag-1)
+  - `ewma`: RiskMetrics EWMA (lambda = 0.94) on close-to-close returns
+  - `garch`: GARCH(1,1), parameters re-estimated every 21 days on an expanding
     window (`arch` package), then a fixed-parameter recursion so forecasts at t
     only use data through t; multi-step from the closed-form mean reversion
-  - `har` — OLS of forward variance on daily, weekly (5d) and monthly (22d)
+  - `har`: OLS of forward variance on daily, weekly (5d) and monthly (22d)
     trailing variance, fit separately per horizon
-  - `har_vix` — same plus VIX, converted to daily variance units
-  - `har_log`, `har_vix_log` — the same regressions in log variance, mapped
+  - `har_vix`: same plus VIX, converted to daily variance units
+  - `har_log`, `har_vix_log`: the same regressions in log variance, mapped
     back as exp(Xb + s²/2) with s² the training residual variance; positive by
     construction, so no flooring
 - EWMA and GARCH are fit on close-to-close returns, so they forecast
@@ -84,7 +84,7 @@ the old "only at 22d" conclusion was the levels fit punishing itself at 1d.
   still an informative one at its own tenor.
 - One asset. A tick-level realized variance target (5-minute RV) would be
   sharper than a range proxy. And there are no transaction costs or option
-  strategies anywhere in here — this measures forecast quality, nothing else.
+  strategies anywhere in here; this measures forecast quality, nothing else.
 - References: Corsi (2009) for HAR; Patton (2011) for QLIKE; Garman & Klass
   (1980) and Parkinson (1980) for the estimators.
 
