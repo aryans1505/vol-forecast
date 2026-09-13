@@ -1,5 +1,9 @@
 # vol-forecast
 
+I forecast how much the S&P 500 will swing over the next day, week and month.
+Adding VIX (option-implied volatility) gave the best forecasts at every
+horizon, but only once I fitted in logs.
+
 HAR forecasts of S&P 500 realized volatility, tested against random walk, EWMA
 and GARCH(1,1). Daily SPY data from Jan 1994 to Sep 2026 (8,225 days),
 out-of-sample from 2004. The vol proxy is Garman-Klass daily variance, with
@@ -79,9 +83,9 @@ the old "only at 22d" conclusion was the levels fit punishing itself at 1d.
   EWMA/GARCH forecasts against the GK target anyway, which handicapped both by
   their overnight-share bias and flattered HAR; the level calibration above
   fixes that, and the tables reflect it.
-- VIX ran 6.1 vol points above subsequent 22-day realized vol on average. Option
-  buyers pay up for variance insurance, so VIX is a biased forecast, though
-  still an informative one at its own tenor.
+- VIX ran 6.1 vol points above subsequent 22-day realized vol on average. Part of
+  that gap is Garman-Klass missing overnight moves, and VIX still adds
+  information at every horizon once fitted in logs.
 - One asset. A tick-level realized variance target (5-minute RV) would be
   sharper than a range proxy. And there are no transaction costs or option
   strategies anywhere in here; this measures forecast quality, nothing else.
